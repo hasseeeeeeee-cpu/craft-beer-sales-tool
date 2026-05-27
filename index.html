@@ -654,8 +654,11 @@
       update();
     });
     $("#clearBtn").addEventListener("click", () => {
-      nodes.rawInput.value = "";
+      nodes.rawInput.value = templateText;
       nodes.expenseInput.value = "";
+      nodes.eventName.value = "クラフトビール";
+      nodes.eventDate.value = "";
+      nodes.memo.value = "";
       update();
       nodes.rawInput.focus();
     });
