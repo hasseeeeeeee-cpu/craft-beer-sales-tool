@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>クラフトビール売上・収支計算</title>
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --surface: #fff;
+      --ink: #202124;
+      --muted: #646a73;
+      --line: #ddd6c8;
+      --dark: #111827;
+      --green: #0f766e;
+      --amber: #d88917;
+      --red: #b42318;
+      --soft: #fdfaf3;
+      --shadow: 0 14px 36px rgba(32, 33, 36, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgba(216, 137, 23, .13), transparent 32%),
+        linear-gradient(315deg, rgba(15, 118, 110, .12), transparent 34%),
+        var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button, textarea, input { font: inherit; }
+
+    .app {
+      width: min(100%, 1040px);
+      margin: 0 auto;
+      padding: 16px 12px 32px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 8px 2px 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 7vw, 38px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      border: 1px solid rgba(15, 118, 110, .28);
+      background: rgba(15, 118, 110, .08);
+      color: var(--green);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, .95fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 14px 0;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 12px;
+      font-weight: 900;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .btn.primary {
+      border-color: var(--dark);
+      background: var(--dark);
+      color: #fff;
+    }
+
+    .btn.green {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    .btn:active { transform: translateY(1px); }
+
+    .body { padding: 14px; }
+
+    textarea {
+      width: 100%;
+      min-height: 214px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      color: var(--ink);
+      padding: 13px;
+      font-size: 16px;
+      line-height: 1.55;
+      outline: none;
+    }
+
+    .expense-area { min-height: 150px; }
+
+    input {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 12px;
+      font-size: 17px;
+      font-weight: 800;
+      outline: none;
+    }
+
+    textarea:focus, input:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(216, 137, 23, .18);
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 14px;
+    }
+
+    .metric {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fcfbf7;
+      padding: 12px;
+    }
+
+    .metric.wide {
+      grid-column: 1 / -1;
+      border-color: rgba(15, 118, 110, .3);
+      background: #f2faf8;
+    }
+
+    .name {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .value {
+      margin-top: 4px;
+      font-size: clamp(22px, 7vw, 34px);
+      line-height: 1.05;
+      font-weight: 950;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sub {
+      min-height: 18px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .report-wrap {
+      display: grid;
+      gap: 10px;
+      padding: 0 14px 14px;
+    }
+
+    .report {
+      min-height: 156px;
+      white-space: pre-wrap;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+      padding: 12px;
+      font-size: 15px;
+      line-height: 1.55;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .errors {
+      display: none;
+      margin: 0 14px 14px;
+      border: 1px solid rgba(180, 35, 24, .25);
+      border-radius: 8px;
+      background: rgba(180, 35, 24, .08);
+      color: var(--red);
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 800;
+    }
+
+    .errors.show { display: block; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      translate: -50% 12px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 10;
+      border-radius: 8px;
+      background: var(--dark);
+      color: #fff;
+      padding: 11px 14px;
+      font-weight: 900;
+      box-shadow: var(--shadow);
+      transition: opacity 160ms ease, translate 160ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      translate: -50% 0;
+    }
+
+    @media (max-width: 780px) {
+      .top { flex-direction: column; padding-bottom: 12px; }
+      .grid { grid-template-columns: 1fr; }
+      .panel-head { align-items: flex-start; flex-direction: column; }
+      .controls { width: 100%; }
+      .btn { flex: 1 1 0; }
+    }
+
+    @media (max-width: 430px) {
+      .settings, .summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1>クラフトビール売上・収支計算</h1>
+      <div class="badge">収支報告対応</div>
+    </header>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="inputTitle">
+        <div class="panel-head">
+          <h2 id="inputTitle">入力</h2>
+          <div class="controls">
+            <button class="btn" id="templateBtn" type="button">テンプレ</button>
+            <button class="btn" id="sampleBtn" type="button">例</button>
+            <button class="btn" id="clearBtn" type="button">消去</button>
+          </div>
+        </div>
+
+        <div class="body">
+          <label>
+            売上入力
+            <textarea id="rawInput" spellcheck="false">10000×
+5000×
+1000×
+100×
+電子決済
+初期釣り銭</textarea>
+          </label>
+
+          <div class="settings">
+            <label>
+              イベント名
+              <input id="eventName" type="text" value="クラフトビール">
+            </label>
+            <label>
+              日付
+              <input id="eventDate" type="date">
+            </label>
+            <label>
+              メモ
+              <input id="memo" type="text" placeholder="任意">
+            </label>
+          </div>
+
+          <label style="margin-top:12px">
+            経費入力
+            <textarea class="expense-area" id="expenseInput" spellcheck="false" placeholder="出店料 10000&#10;交通費 3000&#10;氷 1200"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="resultTitle">
+        <div class="panel-head">
+          <h2 id="resultTitle">結果</h2>
+          <div class="controls">
+            <button class="btn primary" id="copyLineBtn" type="button">LINE</button>
+            <button class="btn green" id="copyReportBtn" type="button">報告用</button>
+            <button class="btn" id="downloadCsvBtn" type="button">CSV</button>
+          </div>
+        </div>
+
+        <div class="summary" aria-live="polite">
+          <article class="metric">
+            <div class="name">現金売上</div>
+            <div class="value" id="cashSales">0円</div>
+            <div class="sub" id="cashSub"></div>
+          </article>
+          <article class="metric">
+            <div class="name">電子決済</div>
+            <div class="value" id="cashlessSales">0円</div>
+            <div class="sub">入力から自動集計</div>
+          </article>
+          <article class="metric wide">
+            <div class="name">総売上</div>
+            <div class="value" id="totalSales">0円</div>
+            <div class="sub" id="totalSub"></div>
+          </article>
+          <article class="metric">
+            <div class="name">経費合計</div>
+            <div class="value" id="expenseTotal">0円</div>
+            <div class="sub" id="expenseSub"></div>
+          </article>
+          <article class="metric wide">
+            <div class="name">収支</div>
+            <div class="value" id="profit">0円</div>
+            <div class="sub" id="profitSub"></div>
+          </article>
+        </div>
+
+        <div class="errors" id="errors" role="status"></div>
+
+        <div class="report-wrap">
+          <div class="report" id="lineReport" aria-label="LINE報告用テキスト"></div>
+          <div class="report" id="reportText" aria-label="収支報告用テキスト"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast">コピーしました</div>
+
+  <script>
+    const templateText = `10000×
+5000×
+1000×
+100×
+電子決済
+初期釣り銭`;
+    const sampleText = `10000×4
+5000×3
+1000×25
+100×0
+電子決済 42800
+初期釣り銭 50000`;
+    const expenseSample = `出店料 10000
+交通費 3000
+氷 1200`;
+
+    const yenFormatter = new Intl.NumberFormat("ja-JP");
+    const $ = (selector) => document.querySelector(selector);
+    const inputs = ["#rawInput", "#expenseInput", "#eventName", "#eventDate", "#memo"].map($);
+    const nodes = {
+      rawInput: $("#rawInput"),
+      expenseInput: $("#expenseInput"),
+      eventName: $("#eventName"),
+      eventDate: $("#eventDate"),
+      memo: $("#memo"),
+      cashSales: $("#cashSales"),
+      cashlessSales: $("#cashlessSales"),
+      totalSales: $("#totalSales"),
+      expenseTotal: $("#expenseTotal"),
+      profit: $("#profit"),
+      cashSub: $("#cashSub"),
+      totalSub: $("#totalSub"),
+      expenseSub: $("#expenseSub"),
+      profitSub: $("#profitSub"),
+      lineReport: $("#lineReport"),
+      reportText: $("#reportText"),
+      errors: $("#errors"),
+      toast: $("#toast")
+    };
+
+    function normalizeNumber(value) {
+      const normalized = String(value || "")
+        .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
+        .replace(/[,，円¥￥\s]/g, "");
+      const number = Number(normalized);
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function yen(value) {
+      return `${yenFormatter.format(Math.round(value))}円`;
+    }
+
+    function parseSales(text) {
+      const result = { cashOnHand: 0, cashless: 0, initialChange: 0, warnings: [] };
+
+      text.split(/\r?\n/).forEach((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const cashMatch = trimmed.match(/^(.+?)[×xX*＊]\s*(.*)$/);
+        if (cashMatch) {
+          const denomination = normalizeNumber(cashMatch[1]);
+          const count = normalizeNumber(cashMatch[2]);
+          if (denomination > 0 && count >= 0) {
+            result.cashOnHand += denomination * count;
+          } else {
+            result.warnings.push(`${index + 1}行目: 現金の金額または枚数を確認`);
+          }
+          return;
+        }
+
+        const amountMatch = trimmed.match(/(-?[\d０-９,，]+)\s*円?$/);
+        const amount = amountMatch ? normalizeNumber(amountMatch[1]) : 0;
+
+        if (/電子|決済|キャッシュレス|paypay|pay|カード|クレカ/i.test(trimmed)) {
+          result.cashless += amount;
+        } else if (/初期|釣り銭|つり銭|つりせん|準備金/i.test(trimmed)) {
+          result.initialChange += amount;
+        } else {
+          result.warnings.push(`${index + 1}行目: 読み取れませんでした`);
+        }
+      });
+
+      return result;
+    }
+
+    function parseExpenses(text) {
+      const rows = [];
+      const warnings = [];
+
+      text.split(/\r?\n/).forEach((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const match = trimmed.match(/^(.*?)[\s　,:：]+(-?[\d０-９,，]+)\s*円?$/);
+        if (!match) {
+          warnings.push(`経費 ${index + 1}行目: 「項目 金額」で入力`);
+          return;
+        }
+
+        rows.push({
+          item: match[1].trim() || "経費",
+          amount: normalizeNumber(match[2])
+        });
+      });
+
+      return {
+        rows,
+        total: rows.reduce((sum, row) => sum + row.amount, 0),
+        warnings
+      };
+    }
+
+    function currentValues() {
+      const sales = parseSales(nodes.rawInput.value);
+      const expenses = parseExpenses(nodes.expenseInput.value);
+      const cashSales = sales.cashOnHand - sales.initialChange;
+      const totalSales = cashSales + sales.cashless;
+      const profit = totalSales - expenses.total;
+
+      return {
+        eventName: nodes.eventName.value.trim() || "クラフトビール",
+        eventDate: nodes.eventDate.value,
+        memo: nodes.memo.value.trim(),
+        cashOnHand: sales.cashOnHand,
+        initialChange: sales.initialChange,
+        cashSales,
+        cashless: sales.cashless,
+        totalSales,
+        expenses,
+        profit,
+        warnings: sales.warnings.concat(expenses.warnings)
+      };
+    }
+
+    function buildLineReport(values) {
+      return [
+        `${values.eventName} 売上報告`,
+        values.eventDate ? `日付: ${values.eventDate}` : null,
+        `現金売上: ${yen(values.cashSales)}`,
+        `電子決済: ${yen(values.cashless)}`,
+        `総売上: ${yen(values.totalSales)}`,
+        `経費合計: ${yen(values.expenses.total)}`,
+        `収支: ${yen(values.profit)}`,
+        values.memo ? `メモ: ${values.memo}` : null
+      ].filter(Boolean).join("\n");
+    }
+
+    function buildReport(values) {
+      const expenseLines = values.expenses.rows.length
+        ? values.expenses.rows.map((row) => `- ${row.item}: ${yen(row.amount)}`)
+        : ["- なし"];
+
+      return [
+        `${values.eventName} 収支報告`,
+        values.eventDate ? `日付: ${values.eventDate}` : null,
+        "",
+        `現金売上: ${yen(values.cashSales)}`,
+        `電子決済: ${yen(values.cashless)}`,
+        `総売上: ${yen(values.totalSales)}`,
+        "",
+        `経費合計: ${yen(values.expenses.total)}`,
+        ...expenseLines,
+        "",
+        `収支: ${yen(values.profit)}`,
+        values.memo ? `メモ: ${values.memo}` : null
+      ].filter((line) => line !== null).join("\n");
+    }
+
+    function csvEscape(value) {
+      const text = String(value ?? "");
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+
+    function buildCsv(values) {
+      const rows = [
+        ["区分", "項目", "金額", "備考"],
+        ["基本", "イベント名", values.eventName, ""],
+        ["基本", "日付", values.eventDate, ""],
+        ["売上", "現金売上", Math.round(values.cashSales), `手元現金 ${Math.round(values.cashOnHand)} - 初期釣り銭 ${Math.round(values.initialChange)}`],
+        ["売上", "電子決済", Math.round(values.cashless), ""],
+        ["売上", "総売上", Math.round(values.totalSales), ""],
+        ["経費", "経費合計", Math.round(values.expenses.total), ""],
+        ...values.expenses.rows.map((row) => ["経費明細", row.item, Math.round(row.amount), ""]),
+        ["収支", "収支", Math.round(values.profit), ""],
+        ["メモ", "メモ", values.memo, ""]
+      ];
+      return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    }
+
+    function update() {
+      const values = currentValues();
+      nodes.cashSales.textContent = yen(values.cashSales);
+      nodes.cashlessSales.textContent = yen(values.cashless);
+      nodes.totalSales.textContent = yen(values.totalSales);
+      nodes.expenseTotal.textContent = yen(values.expenses.total);
+      nodes.profit.textContent = yen(values.profit);
+      nodes.cashSub.textContent = `手元現金 ${yen(values.cashOnHand)} - 初期釣り銭 ${yen(values.initialChange)}`;
+      nodes.totalSub.textContent = `現金 ${yen(values.cashSales)} + 電子決済 ${yen(values.cashless)}`;
+      nodes.expenseSub.textContent = values.expenses.rows.length ? `${values.expenses.rows.length}件` : "未入力";
+      nodes.profitSub.textContent = `総売上 ${yen(values.totalSales)} - 経費 ${yen(values.expenses.total)}`;
+      nodes.lineReport.textContent = buildLineReport(values);
+      nodes.reportText.textContent = buildReport(values);
+
+      if (values.warnings.length) {
+        nodes.errors.classList.add("show");
+        nodes.errors.textContent = values.warnings.join(" / ");
+      } else {
+        nodes.errors.classList.remove("show");
+        nodes.errors.textContent = "";
+      }
+    }
+
+    async function copyText(text, doneMessage) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(doneMessage);
+      } catch {
+        showToast("コピーできませんでした");
+      }
+    }
+
+    function downloadCsv() {
+      const values = currentValues();
+      const csv = "\uFEFF" + buildCsv(values);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const baseName = `${values.eventDate || "event"}_${values.eventName}_収支報告`.replace(/[\\/:*?"<>|]/g, "_");
+      link.href = url;
+      link.download = `${baseName}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("CSVを作成しました");
+    }
+
+    function showToast(message) {
+      nodes.toast.textContent = message;
+      nodes.toast.classList.add("show");
+      window.setTimeout(() => nodes.toast.classList.remove("show"), 1500);
+    }
+
+    inputs.forEach((input) => input.addEventListener("input", update));
+    $("#templateBtn").addEventListener("click", () => {
+      nodes.rawInput.value = templateText;
+      update();
+      nodes.rawInput.focus();
+    });
+    $("#sampleBtn").addEventListener("click", () => {
+      nodes.rawInput.value = sampleText;
+      nodes.expenseInput.value = expenseSample;
+      update();
+    });
+    $("#clearBtn").addEventListener("click", () => {
+      nodes.rawInput.value = "";
+      nodes.expenseInput.value = "";
+      update();
+      nodes.rawInput.focus();
+    });
+    $("#copyLineBtn").addEventListener("click", () => copyText(nodes.lineReport.textContent, "LINE用をコピーしました"));
+    $("#copyReportBtn").addEventListener("click", () => copyText(nodes.reportText.textContent, "報告用をコピーしました"));
+    $("#downloadCsvBtn").addEventListener("click", downloadCsv);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+
+    update();
+  </script>
+</body>
+</html>
