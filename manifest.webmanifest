@@ -1,0 +1,9 @@
+{
+  "name": "クラフトビール売上・収支計算",
+  "short_name": "売上収支",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#0f766e"
+}
