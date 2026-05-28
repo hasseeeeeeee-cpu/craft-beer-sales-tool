@@ -246,6 +246,152 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .history {
+      border-top: 1px solid var(--line);
+      padding: 14px;
+    }
+
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .history-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .history-empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .history-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .history-tab {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--ink);
+      display: grid;
+      gap: 1px;
+      flex: 0 0 auto;
+      min-width: 116px;
+      max-width: 180px;
+      padding: 9px 12px;
+      text-align: left;
+    }
+
+    .history-tab.active {
+      border-color: var(--green);
+      background: rgba(42, 157, 143, .1);
+    }
+
+    .history-tab-name {
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-tab-date {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-detail {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fcfbf7;
+      padding: 10px;
+    }
+
+    .history-detail-head {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      margin-bottom: 9px;
+    }
+
+    .history-name {
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+
+    .history-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .history-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .history-stat {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 8px;
+    }
+
+    .history-stat-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .history-stat-value {
+      font-size: 15px;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .history-actions .btn {
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
     .errors {
       display: none;
       margin: 0 14px 14px;
@@ -353,6 +499,7 @@
           <div class="controls">
             <button class="btn primary" id="copyLineBtn" type="button">LINE</button>
             <button class="btn green" id="copyReportBtn" type="button">報告用</button>
+            <button class="btn" id="saveHistoryBtn" type="button">記録</button>
             <button class="btn" id="downloadCsvBtn" type="button">CSV</button>
           </div>
         </div>
@@ -391,6 +538,14 @@
           <div class="report" id="lineReport" aria-label="LINE報告用テキスト"></div>
           <div class="report" id="reportText" aria-label="収支報告用テキスト"></div>
         </div>
+
+        <div class="history" aria-labelledby="historyTitle">
+          <div class="history-head">
+            <h2 class="history-title" id="historyTitle">履歴</h2>
+            <button class="btn" id="downloadHistoryBtn" type="button">履歴CSV</button>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </div>
       </section>
     </div>
   </main>
@@ -413,6 +568,9 @@
     const expenseSample = `出店料 10000
 交通費 3000
 氷 1200`;
+    const historyKey = "craftBeerSalesHistory";
+    const maxHistoryItems = 50;
+    let selectedHistoryId = "";
 
     const yenFormatter = new Intl.NumberFormat("ja-JP");
     const $ = (selector) => document.querySelector(selector);
@@ -434,6 +592,7 @@
       profitSub: $("#profitSub"),
       lineReport: $("#lineReport"),
       reportText: $("#reportText"),
+      historyList: $("#historyList"),
       errors: $("#errors"),
       toast: $("#toast")
     };
@@ -636,6 +795,182 @@
       showToast("CSVを作成しました");
     }
 
+    function readHistory() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(historyKey) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function writeHistory(items) {
+      localStorage.setItem(historyKey, JSON.stringify(items.slice(0, maxHistoryItems)));
+      renderHistory();
+    }
+
+    function saveHistory() {
+      const values = currentValues();
+      const item = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        savedAt: new Date().toISOString(),
+        eventName: values.eventName,
+        eventDate: values.eventDate,
+        memo: values.memo,
+        cashSales: Math.round(values.cashSales),
+        cashless: Math.round(values.cashless),
+        totalSales: Math.round(values.totalSales),
+        expenseTotal: Math.round(values.expenses.total),
+        profit: Math.round(values.profit),
+        rawInput: nodes.rawInput.value,
+        expenseInput: nodes.expenseInput.value,
+        reportText: buildReport(values)
+      };
+
+      selectedHistoryId = item.id;
+      writeHistory([item, ...readHistory()]);
+      showToast("履歴に記録しました");
+    }
+
+    function restoreHistory(id) {
+      const item = readHistory().find((entry) => entry.id === id);
+      if (!item) return;
+
+      nodes.rawInput.value = item.rawInput || templateText;
+      nodes.expenseInput.value = item.expenseInput || "";
+      nodes.eventName.value = item.eventName || "クラフトビール";
+      nodes.eventDate.value = item.eventDate || "";
+      nodes.memo.value = item.memo || "";
+      update();
+      showToast("履歴を復元しました");
+    }
+
+    function deleteHistory(id) {
+      const nextHistory = readHistory().filter((entry) => entry.id !== id);
+      if (selectedHistoryId === id) selectedHistoryId = nextHistory[0]?.id || "";
+      writeHistory(nextHistory);
+      showToast("履歴を削除しました");
+    }
+
+    function historyCsv() {
+      const rows = [
+        ["記録日時", "イベント名", "日付", "現金売上", "電子決済", "総売上", "経費合計", "収支", "メモ"],
+        ...readHistory().map((item) => [
+          formatSavedAt(item.savedAt),
+          item.eventName,
+          item.eventDate,
+          item.cashSales,
+          item.cashless,
+          item.totalSales,
+          item.expenseTotal,
+          item.profit,
+          item.memo
+        ])
+      ];
+
+      return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+    }
+
+    function downloadHistoryCsv() {
+      const history = readHistory();
+      if (!history.length) {
+        showToast("履歴がありません");
+        return;
+      }
+
+      const csv = "\uFEFF" + historyCsv();
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "売上収支履歴.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("履歴CSVを作成しました");
+    }
+
+    function formatSavedAt(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleString("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function renderHistory() {
+      const history = readHistory();
+      if (!history.length) {
+        selectedHistoryId = "";
+        nodes.historyList.innerHTML = `<div class="history-empty">まだ記録がありません</div>`;
+        return;
+      }
+
+      if (!history.some((item) => item.id === selectedHistoryId)) {
+        selectedHistoryId = history[0].id;
+      }
+
+      const selected = history.find((item) => item.id === selectedHistoryId) || history[0];
+      const tabs = history.map((item) => {
+        const isActive = item.id === selected.id;
+        return `
+          <button class="history-tab${isActive ? " active" : ""}" type="button" data-history-action="select" data-history-id="${escapeHtml(item.id)}" aria-pressed="${isActive ? "true" : "false"}">
+            <span class="history-tab-name">${escapeHtml(item.eventName || "クラフトビール")}</span>
+            <span class="history-tab-date">${escapeHtml(item.eventDate || formatSavedAt(item.savedAt) || "日付なし")}</span>
+          </button>
+        `;
+      }).join("");
+
+      nodes.historyList.innerHTML = `
+        <div class="history-tabs" role="tablist" aria-label="履歴のイベント">
+          ${tabs}
+        </div>
+        <article class="history-detail">
+          <div class="history-detail-head">
+            <div class="history-name">${escapeHtml(selected.eventName || "クラフトビール")}</div>
+            <div class="history-meta">${escapeHtml(selected.eventDate || "日付なし")} / 記録 ${escapeHtml(formatSavedAt(selected.savedAt))}</div>
+            ${selected.memo ? `<div class="history-meta">${escapeHtml(selected.memo)}</div>` : ""}
+          </div>
+          <div class="history-stats">
+            <div class="history-stat">
+              <div class="history-stat-label">総売上</div>
+              <div class="history-stat-value">${yen(selected.totalSales || 0)}</div>
+            </div>
+            <div class="history-stat">
+              <div class="history-stat-label">収支</div>
+              <div class="history-stat-value">${yen(selected.profit || 0)}</div>
+            </div>
+            <div class="history-stat">
+              <div class="history-stat-label">現金売上</div>
+              <div class="history-stat-value">${yen(selected.cashSales || 0)}</div>
+            </div>
+            <div class="history-stat">
+              <div class="history-stat-label">経費合計</div>
+              <div class="history-stat-value">${yen(selected.expenseTotal || 0)}</div>
+            </div>
+          </div>
+          <div class="history-actions">
+            <button class="btn" type="button" data-history-action="restore" data-history-id="${escapeHtml(selected.id)}">復元</button>
+            <button class="btn" type="button" data-history-action="delete" data-history-id="${escapeHtml(selected.id)}">削除</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
     function showToast(message) {
       nodes.toast.textContent = message;
       nodes.toast.classList.add("show");
@@ -664,7 +999,21 @@
     });
     $("#copyLineBtn").addEventListener("click", () => copyText(nodes.lineReport.textContent, "LINE用をコピーしました"));
     $("#copyReportBtn").addEventListener("click", () => copyText(nodes.reportText.textContent, "報告用をコピーしました"));
+    $("#saveHistoryBtn").addEventListener("click", saveHistory);
     $("#downloadCsvBtn").addEventListener("click", downloadCsv);
+    $("#downloadHistoryBtn").addEventListener("click", downloadHistoryCsv);
+    nodes.historyList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-history-action]");
+      if (!button) return;
+
+      const id = button.dataset.historyId;
+      if (button.dataset.historyAction === "select") {
+        selectedHistoryId = id;
+        renderHistory();
+      }
+      if (button.dataset.historyAction === "restore") restoreHistory(id);
+      if (button.dataset.historyAction === "delete") deleteHistory(id);
+    });
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -687,6 +1036,7 @@
     }
 
     update();
+    renderHistory();
   </script>
 </body>
 </html>
