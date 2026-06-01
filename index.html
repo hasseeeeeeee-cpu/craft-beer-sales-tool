@@ -228,6 +228,30 @@
       font-weight: 750;
     }
 
+    .cashless-breakdown {
+      display: grid;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .cashless-row,
+    .history-breakdown-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .cashless-row span:first-child,
+    .history-breakdown-row span:first-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
     .report-wrap {
       display: grid;
       gap: 10px;
@@ -380,6 +404,14 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .history-breakdown {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
     .history-actions {
       display: flex;
       gap: 8px;
@@ -467,7 +499,11 @@
 5000×
 1000×
 100×
-電子決済
+電子決済 PayPay
+電子決済 カード
+電子決済 交通系
+電子決済 クイックペイ
+電子決済 ID
 初期釣り銭</textarea>
           </label>
 
@@ -513,7 +549,8 @@
           <article class="metric">
             <div class="name">電子決済</div>
             <div class="value" id="cashlessSales">0円</div>
-            <div class="sub">入力から自動集計</div>
+            <div class="sub" id="cashlessSub">入力から自動集計</div>
+            <div class="cashless-breakdown" id="cashlessBreakdown"></div>
           </article>
           <article class="metric wide">
             <div class="name">総売上</div>
@@ -557,13 +594,21 @@
 5000×
 1000×
 100×
-電子決済
+電子決済 PayPay
+電子決済 カード
+電子決済 交通系
+電子決済 クイックペイ
+電子決済 ID
 初期釣り銭`;
     const sampleText = `10000×4
 5000×3
 1000×25
 100×0
-電子決済 42800
+電子決済 PayPay 22000
+電子決済 カード 12000
+電子決済 交通系 4800
+電子決済 クイックペイ 3000
+電子決済 ID 1000
 初期釣り銭 50000`;
     const expenseSample = `出店料 10000
 交通費 3000
@@ -583,6 +628,8 @@
       memo: $("#memo"),
       cashSales: $("#cashSales"),
       cashlessSales: $("#cashlessSales"),
+      cashlessSub: $("#cashlessSub"),
+      cashlessBreakdown: $("#cashlessBreakdown"),
       totalSales: $("#totalSales"),
       expenseTotal: $("#expenseTotal"),
       profit: $("#profit"),
@@ -609,8 +656,30 @@
       return `${yenFormatter.format(Math.round(value))}円`;
     }
 
+    function mergeRows(rows) {
+      const merged = new Map();
+      rows.forEach((row) => {
+        const key = row.method || "電子決済";
+        merged.set(key, (merged.get(key) || 0) + row.amount);
+      });
+      return Array.from(merged, ([method, amount]) => ({ method, amount }));
+    }
+
+    function cashlessMethod(line, amountText) {
+      const label = line
+        .replace(amountText, "")
+        .replace(/電子決済|電子|決済|キャッシュレス/gi, "")
+        .replace(/[：:,，、]/g, " ")
+        .trim();
+      return label || "電子決済";
+    }
+
+    function cashlessBreakdownText(rows) {
+      return rows.map((row) => `${row.method}: ${yen(row.amount)}`).join(" / ");
+    }
+
     function parseSales(text) {
-      const result = { cashOnHand: 0, cashless: 0, initialChange: 0, warnings: [] };
+      const result = { cashOnHand: 0, cashless: 0, cashlessRows: [], initialChange: 0, warnings: [] };
 
       text.split(/\r?\n/).forEach((line, index) => {
         const trimmed = line.trim();
@@ -631,8 +700,14 @@
         const amountMatch = trimmed.match(/(-?[\d０-９,，]+)\s*円?$/);
         const amount = amountMatch ? normalizeNumber(amountMatch[1]) : 0;
 
-        if (/電子|決済|キャッシュレス|paypay|pay|カード|クレカ/i.test(trimmed)) {
+        if (/電子|決済|キャッシュレス|paypay|ペイペイ|pay|カード|クレカ|クレジット|交通|suica|pasmo|ic|id|quickpay|クイック|qr|line\s*pay|au\s*pay|d払い|楽天/i.test(trimmed)) {
           result.cashless += amount;
+          if (amountMatch) {
+            result.cashlessRows.push({
+              method: cashlessMethod(trimmed, amountMatch[1]),
+              amount
+            });
+          }
         } else if (/初期|釣り銭|つり銭|つりせん|準備金/i.test(trimmed)) {
           result.initialChange += amount;
         } else {
@@ -640,6 +715,7 @@
         }
       });
 
+      result.cashlessRows = mergeRows(result.cashlessRows);
       return result;
     }
 
@@ -685,6 +761,7 @@
         initialChange: sales.initialChange,
         cashSales,
         cashless: sales.cashless,
+        cashlessRows: sales.cashlessRows,
         totalSales,
         expenses,
         profit,
@@ -738,6 +815,7 @@
         ["基本", "日付", values.eventDate, ""],
         ["売上", "現金売上", Math.round(values.cashSales), `手元現金 ${Math.round(values.cashOnHand)} - 初期釣り銭 ${Math.round(values.initialChange)}`],
         ["売上", "電子決済", Math.round(values.cashless), ""],
+        ...values.cashlessRows.map((row) => ["電子決済内訳", row.method, Math.round(row.amount), ""]),
         ["売上", "総売上", Math.round(values.totalSales), ""],
         ["経費", "経費合計", Math.round(values.expenses.total), ""],
         ...values.expenses.rows.map((row) => ["経費明細", row.item, Math.round(row.amount), ""]),
@@ -751,6 +829,13 @@
       const values = currentValues();
       nodes.cashSales.textContent = yen(values.cashSales);
       nodes.cashlessSales.textContent = yen(values.cashless);
+      nodes.cashlessSub.textContent = values.cashlessRows.length ? `${values.cashlessRows.length}件` : "入力から自動集計";
+      nodes.cashlessBreakdown.innerHTML = values.cashlessRows.map((row) => `
+        <div class="cashless-row">
+          <span>${escapeHtml(row.method)}</span>
+          <span>${yen(row.amount)}</span>
+        </div>
+      `).join("");
       nodes.totalSales.textContent = yen(values.totalSales);
       nodes.expenseTotal.textContent = yen(values.expenses.total);
       nodes.profit.textContent = yen(values.profit);
@@ -819,6 +904,7 @@
         memo: values.memo,
         cashSales: Math.round(values.cashSales),
         cashless: Math.round(values.cashless),
+        cashlessRows: values.cashlessRows.map((row) => ({ method: row.method, amount: Math.round(row.amount) })),
         totalSales: Math.round(values.totalSales),
         expenseTotal: Math.round(values.expenses.total),
         profit: Math.round(values.profit),
@@ -854,13 +940,14 @@
 
     function historyCsv() {
       const rows = [
-        ["記録日時", "イベント名", "日付", "現金売上", "電子決済", "総売上", "経費合計", "収支", "メモ"],
+        ["記録日時", "イベント名", "日付", "現金売上", "電子決済", "電子決済内訳", "総売上", "経費合計", "収支", "メモ"],
         ...readHistory().map((item) => [
           formatSavedAt(item.savedAt),
           item.eventName,
           item.eventDate,
           item.cashSales,
           item.cashless,
+          cashlessBreakdownText(item.cashlessRows || []),
           item.totalSales,
           item.expenseTotal,
           item.profit,
@@ -950,10 +1037,24 @@
               <div class="history-stat-value">${yen(selected.cashSales || 0)}</div>
             </div>
             <div class="history-stat">
+              <div class="history-stat-label">電子決済</div>
+              <div class="history-stat-value">${yen(selected.cashless || 0)}</div>
+            </div>
+            <div class="history-stat">
               <div class="history-stat-label">経費合計</div>
               <div class="history-stat-value">${yen(selected.expenseTotal || 0)}</div>
             </div>
           </div>
+          ${(selected.cashlessRows || []).length ? `
+            <div class="history-breakdown">
+              ${(selected.cashlessRows || []).map((row) => `
+                <div class="history-breakdown-row">
+                  <span>${escapeHtml(row.method)}</span>
+                  <span>${yen(row.amount)}</span>
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
           <div class="history-actions">
             <button class="btn" type="button" data-history-action="restore" data-history-id="${escapeHtml(selected.id)}">復元</button>
             <button class="btn" type="button" data-history-action="delete" data-history-id="${escapeHtml(selected.id)}">削除</button>
