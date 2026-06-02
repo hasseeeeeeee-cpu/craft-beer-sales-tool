@@ -150,6 +150,8 @@
 
     .expense-area { min-height: 150px; }
 
+    .petty-area { min-height: 132px; }
+
     input {
       width: 100%;
       min-height: 46px;
@@ -502,7 +504,7 @@
 PayPay
 カード
 交通系
-クイックペイ
+QUICPay
 ID
 初期釣り銭</textarea>
           </label>
@@ -525,6 +527,16 @@ ID
           <label style="margin-top:12px">
             経費入力
             <textarea class="expense-area" id="expenseInput" spellcheck="false" placeholder="出店料 10000&#10;交通費 3000&#10;氷 1200"></textarea>
+          </label>
+
+          <label style="margin-top:12px">
+            小口準備金
+            <input id="pettyFundInput" type="text" inputmode="numeric" placeholder="30000">
+          </label>
+
+          <label style="margin-top:12px">
+            小口金 使用内容
+            <textarea class="expense-area petty-area" id="pettyInput" spellcheck="false" placeholder="氷 1200&#10;駐車場 800&#10;備品 1500"></textarea>
           </label>
         </div>
       </section>
@@ -567,6 +579,12 @@ ID
             <div class="value" id="profit">0円</div>
             <div class="sub" id="profitSub"></div>
           </article>
+          <article class="metric wide">
+            <div class="name">小口金精算 差額</div>
+            <div class="value" id="pettyBalance">0円</div>
+            <div class="sub" id="pettySub"></div>
+            <div class="cashless-breakdown" id="pettyBreakdown"></div>
+          </article>
         </div>
 
         <div class="errors" id="errors" role="status"></div>
@@ -597,7 +615,7 @@ ID
 PayPay
 カード
 交通系
-クイックペイ
+QUICPay
 ID
 初期釣り銭`;
     const sampleText = `10000×4
@@ -607,22 +625,27 @@ ID
 PayPay 22000
 カード 12000
 交通系 4800
-クイックペイ 3000
+QUICPay 3000
 ID 1000
 初期釣り銭 50000`;
     const expenseSample = `出店料 10000
 交通費 3000
 氷 1200`;
+    const pettySample = `氷 1200
+駐車場 800
+備品 1500`;
     const historyKey = "craftBeerSalesHistory";
     const maxHistoryItems = 50;
     let selectedHistoryId = "";
 
     const yenFormatter = new Intl.NumberFormat("ja-JP");
     const $ = (selector) => document.querySelector(selector);
-    const inputs = ["#rawInput", "#expenseInput", "#eventName", "#eventDate", "#memo"].map($);
+    const inputs = ["#rawInput", "#expenseInput", "#pettyFundInput", "#pettyInput", "#eventName", "#eventDate", "#memo"].map($);
     const nodes = {
       rawInput: $("#rawInput"),
       expenseInput: $("#expenseInput"),
+      pettyFundInput: $("#pettyFundInput"),
+      pettyInput: $("#pettyInput"),
       eventName: $("#eventName"),
       eventDate: $("#eventDate"),
       memo: $("#memo"),
@@ -633,10 +656,13 @@ ID 1000
       totalSales: $("#totalSales"),
       expenseTotal: $("#expenseTotal"),
       profit: $("#profit"),
+      pettyBalance: $("#pettyBalance"),
       cashSub: $("#cashSub"),
       totalSub: $("#totalSub"),
       expenseSub: $("#expenseSub"),
       profitSub: $("#profitSub"),
+      pettySub: $("#pettySub"),
+      pettyBreakdown: $("#pettyBreakdown"),
       lineReport: $("#lineReport"),
       reportText: $("#reportText"),
       historyList: $("#historyList"),
@@ -746,9 +772,41 @@ ID 1000
       };
     }
 
+    function parsePettyCash(fundText, usageText) {
+      const fund = normalizeNumber(fundText);
+      const rows = [];
+      const warnings = [];
+
+      usageText.split(/\r?\n/).forEach((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        const match = trimmed.match(/^(.*?)[\s　,:：]+(-?[\d０-９,，]+)\s*円?$/);
+        if (!match) {
+          warnings.push(`小口 ${index + 1}行目: 「内容 金額」で入力`);
+          return;
+        }
+
+        rows.push({
+          item: match[1].trim() || "使用内容",
+          amount: normalizeNumber(match[2])
+        });
+      });
+
+      const usedTotal = rows.reduce((sum, row) => sum + row.amount, 0);
+      return {
+        fund,
+        rows,
+        usedTotal,
+        balance: fund - usedTotal,
+        warnings
+      };
+    }
+
     function currentValues() {
       const sales = parseSales(nodes.rawInput.value);
       const expenses = parseExpenses(nodes.expenseInput.value);
+      const petty = parsePettyCash(nodes.pettyFundInput.value, nodes.pettyInput.value);
       const cashSales = sales.cashOnHand - sales.initialChange;
       const totalSales = cashSales + sales.cashless;
       const profit = totalSales - expenses.total;
@@ -764,8 +822,9 @@ ID 1000
         cashlessRows: sales.cashlessRows,
         totalSales,
         expenses,
+        petty,
         profit,
-        warnings: sales.warnings.concat(expenses.warnings)
+        warnings: sales.warnings.concat(expenses.warnings, petty.warnings)
       };
     }
 
@@ -778,6 +837,7 @@ ID 1000
         `総売上: ${yen(values.totalSales)}`,
         `経費合計: ${yen(values.expenses.total)}`,
         `収支: ${yen(values.profit)}`,
+        values.petty.fund || values.petty.usedTotal ? `小口差額: ${yen(values.petty.balance)}` : null,
         values.memo ? `メモ: ${values.memo}` : null
       ].filter(Boolean).join("\n");
     }
@@ -786,6 +846,10 @@ ID 1000
       const expenseLines = values.expenses.rows.length
         ? values.expenses.rows.map((row) => `- ${row.item}: ${yen(row.amount)}`)
         : ["- なし"];
+      const pettyLines = values.petty.rows.length
+        ? values.petty.rows.map((row) => `- ${row.item}: ${yen(row.amount)}`)
+        : ["- なし"];
+      const hasPetty = values.petty.fund || values.petty.usedTotal || values.petty.rows.length;
 
       return [
         `${values.eventName} 収支報告`,
@@ -797,6 +861,11 @@ ID 1000
         "",
         `経費合計: ${yen(values.expenses.total)}`,
         ...expenseLines,
+        hasPetty ? "" : null,
+        hasPetty ? `小口準備金: ${yen(values.petty.fund)}` : null,
+        hasPetty ? `小口使用金額: ${yen(values.petty.usedTotal)}` : null,
+        hasPetty ? `小口差額: ${yen(values.petty.balance)}` : null,
+        ...(hasPetty ? pettyLines : []),
         "",
         `収支: ${yen(values.profit)}`,
         values.memo ? `メモ: ${values.memo}` : null
@@ -819,6 +888,10 @@ ID 1000
         ["売上", "総売上", Math.round(values.totalSales), ""],
         ["経費", "経費合計", Math.round(values.expenses.total), ""],
         ...values.expenses.rows.map((row) => ["経費明細", row.item, Math.round(row.amount), ""]),
+        ["小口金", "小口準備金", Math.round(values.petty.fund), ""],
+        ["小口金", "小口使用金額", Math.round(values.petty.usedTotal), ""],
+        ["小口金", "小口差額", Math.round(values.petty.balance), ""],
+        ...values.petty.rows.map((row) => ["小口金使用内容", row.item, Math.round(row.amount), ""]),
         ["収支", "収支", Math.round(values.profit), ""],
         ["メモ", "メモ", values.memo, ""]
       ];
@@ -839,10 +912,18 @@ ID 1000
       nodes.totalSales.textContent = yen(values.totalSales);
       nodes.expenseTotal.textContent = yen(values.expenses.total);
       nodes.profit.textContent = yen(values.profit);
+      nodes.pettyBalance.textContent = yen(values.petty.balance);
       nodes.cashSub.textContent = `手元現金 ${yen(values.cashOnHand)} - 初期釣り銭 ${yen(values.initialChange)}`;
       nodes.totalSub.textContent = `現金 ${yen(values.cashSales)} + 電子決済 ${yen(values.cashless)}`;
       nodes.expenseSub.textContent = values.expenses.rows.length ? `${values.expenses.rows.length}件` : "未入力";
       nodes.profitSub.textContent = `総売上 ${yen(values.totalSales)} - 経費 ${yen(values.expenses.total)}`;
+      nodes.pettySub.textContent = `準備金 ${yen(values.petty.fund)} - 使用 ${yen(values.petty.usedTotal)}`;
+      nodes.pettyBreakdown.innerHTML = values.petty.rows.map((row) => `
+        <div class="cashless-row">
+          <span>${escapeHtml(row.item)}</span>
+          <span>${yen(row.amount)}</span>
+        </div>
+      `).join("");
       nodes.lineReport.textContent = buildLineReport(values);
       nodes.reportText.textContent = buildReport(values);
 
@@ -907,9 +988,17 @@ ID 1000
         cashlessRows: values.cashlessRows.map((row) => ({ method: row.method, amount: Math.round(row.amount) })),
         totalSales: Math.round(values.totalSales),
         expenseTotal: Math.round(values.expenses.total),
+        petty: {
+          fund: Math.round(values.petty.fund),
+          usedTotal: Math.round(values.petty.usedTotal),
+          balance: Math.round(values.petty.balance),
+          rows: values.petty.rows.map((row) => ({ item: row.item, amount: Math.round(row.amount) }))
+        },
         profit: Math.round(values.profit),
         rawInput: nodes.rawInput.value,
         expenseInput: nodes.expenseInput.value,
+        pettyFundInput: nodes.pettyFundInput.value,
+        pettyInput: nodes.pettyInput.value,
         reportText: buildReport(values)
       };
 
@@ -924,6 +1013,8 @@ ID 1000
 
       nodes.rawInput.value = item.rawInput || templateText;
       nodes.expenseInput.value = item.expenseInput || "";
+      nodes.pettyFundInput.value = item.pettyFundInput || (item.petty?.fund ? String(item.petty.fund) : "");
+      nodes.pettyInput.value = item.pettyInput || "";
       nodes.eventName.value = item.eventName || "クラフトビール";
       nodes.eventDate.value = item.eventDate || "";
       nodes.memo.value = item.memo || "";
@@ -940,7 +1031,7 @@ ID 1000
 
     function historyCsv() {
       const rows = [
-        ["記録日時", "イベント名", "日付", "現金売上", "電子決済", "電子決済内訳", "総売上", "経費合計", "収支", "メモ"],
+        ["記録日時", "イベント名", "日付", "現金売上", "電子決済", "電子決済内訳", "総売上", "経費合計", "小口準備金", "小口使用金額", "小口差額", "収支", "メモ"],
         ...readHistory().map((item) => [
           formatSavedAt(item.savedAt),
           item.eventName,
@@ -950,6 +1041,9 @@ ID 1000
           cashlessBreakdownText(item.cashlessRows || []),
           item.totalSales,
           item.expenseTotal,
+          item.petty?.fund || 0,
+          item.petty?.usedTotal || 0,
+          item.petty?.balance || 0,
           item.profit,
           item.memo
         ])
@@ -1044,12 +1138,26 @@ ID 1000
               <div class="history-stat-label">経費合計</div>
               <div class="history-stat-value">${yen(selected.expenseTotal || 0)}</div>
             </div>
+            <div class="history-stat">
+              <div class="history-stat-label">小口差額</div>
+              <div class="history-stat-value">${yen(selected.petty?.balance || 0)}</div>
+            </div>
           </div>
           ${(selected.cashlessRows || []).length ? `
             <div class="history-breakdown">
               ${(selected.cashlessRows || []).map((row) => `
                 <div class="history-breakdown-row">
                   <span>${escapeHtml(row.method)}</span>
+                  <span>${yen(row.amount)}</span>
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
+          ${(selected.petty?.rows || []).length ? `
+            <div class="history-breakdown">
+              ${(selected.petty?.rows || []).map((row) => `
+                <div class="history-breakdown-row">
+                  <span>${escapeHtml(row.item)}</span>
                   <span>${yen(row.amount)}</span>
                 </div>
               `).join("")}
@@ -1081,17 +1189,23 @@ ID 1000
     inputs.forEach((input) => input.addEventListener("input", update));
     $("#templateBtn").addEventListener("click", () => {
       nodes.rawInput.value = templateText;
+      nodes.pettyFundInput.value = "";
+      nodes.pettyInput.value = "";
       update();
       nodes.rawInput.focus();
     });
     $("#sampleBtn").addEventListener("click", () => {
       nodes.rawInput.value = sampleText;
       nodes.expenseInput.value = expenseSample;
+      nodes.pettyFundInput.value = "30000";
+      nodes.pettyInput.value = pettySample;
       update();
     });
     $("#clearBtn").addEventListener("click", () => {
       nodes.rawInput.value = templateText;
       nodes.expenseInput.value = "";
+      nodes.pettyFundInput.value = "";
+      nodes.pettyInput.value = "";
       nodes.eventName.value = "クラフトビール";
       nodes.eventDate.value = "";
       nodes.memo.value = "";
