@@ -745,6 +745,19 @@ ID 1000
       return result;
     }
 
+    function parseItemAmountLine(line) {
+      const match = line.match(/^(.+?)[\s　,:：]*(-?[\d０-９][\d０-９,，]*)\s*円?$/);
+      if (!match) return null;
+
+      const item = match[1].trim();
+      if (!/[^\d０-９,，\s　,:：-]/.test(item)) return null;
+
+      return {
+        item,
+        amount: normalizeNumber(match[2])
+      };
+    }
+
     function parseExpenses(text) {
       const rows = [];
       const warnings = [];
@@ -753,15 +766,15 @@ ID 1000
         const trimmed = line.trim();
         if (!trimmed) return;
 
-        const match = trimmed.match(/^(.*?)[\s　,:：]+(-?[\d０-９,，]+)\s*円?$/);
-        if (!match) {
-          warnings.push(`経費 ${index + 1}行目: 「項目 金額」で入力`);
+        const parsed = parseItemAmountLine(trimmed);
+        if (!parsed) {
+          warnings.push(`経費 ${index + 1}行目: 「項目 金額」または「項目金額」で入力`);
           return;
         }
 
         rows.push({
-          item: match[1].trim() || "経費",
-          amount: normalizeNumber(match[2])
+          item: parsed.item || "経費",
+          amount: parsed.amount
         });
       });
 
@@ -781,15 +794,15 @@ ID 1000
         const trimmed = line.trim();
         if (!trimmed) return;
 
-        const match = trimmed.match(/^(.*?)[\s　,:：]+(-?[\d０-９,，]+)\s*円?$/);
-        if (!match) {
-          warnings.push(`小口 ${index + 1}行目: 「内容 金額」で入力`);
+        const parsed = parseItemAmountLine(trimmed);
+        if (!parsed) {
+          warnings.push(`小口 ${index + 1}行目: 「内容 金額」または「内容金額」で入力`);
           return;
         }
 
         rows.push({
-          item: match[1].trim() || "使用内容",
-          amount: normalizeNumber(match[2])
+          item: parsed.item || "使用内容",
+          amount: parsed.amount
         });
       });
 
