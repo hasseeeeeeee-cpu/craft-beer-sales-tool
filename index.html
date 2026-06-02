@@ -704,6 +704,8 @@ const templateText = "\u91e3\u308a\u92ad\u6e96\u5099\u91d1\u30fc\u30fc\u30fc\u30
           return;
         }
 
+                if (!/[0-9\uFF10-\uFF19]/.test(trimmed)) return;
+        
         const amountMatch = trimmed.match(/(-?[\d０-９,，]+)\s*円?$/);
         const amount = amountMatch ? normalizeNumber(amountMatch[1]) : 0;
 
