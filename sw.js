@@ -1,6 +1,5 @@
-const CACHE_NAME = "craft-beer-sales-v14";
+const CACHE_NAME = "craft-beer-sales-v15";
 const ASSETS = [
-  "./index.html",
   "./manifest.webmanifest"
 ];
 
@@ -466,7 +465,6 @@ self.addEventListener("fetch", (event) => {
       fetch(event.request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("./index.html", copy));
           return injectHistory(response);
         })
         .catch(() => caches.match("./index.html").then((cached) => cached && injectHistory(cached)))
