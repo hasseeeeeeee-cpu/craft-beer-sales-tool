@@ -650,6 +650,8 @@ onst templateText = "\u91e3\u308a\u92ad\u6e96\u5099\u91d1\u30fc\u30fc\u30fc\u30f
       toast: $("#toast")
     };
 
+        nodes.rawInput.value = templateText;
+    
     function normalizeNumber(value) {
       const normalized = String(value || "")
         .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
