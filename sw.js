@@ -1,4 +1,4 @@
-const CACHE_NAME = "craft-beer-sales-v9";
+const CACHE_NAME = "craft-beer-sales-v11";
 const ASSETS = [
   "./index.html",
   "./manifest.webmanifest"
