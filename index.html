@@ -608,33 +608,13 @@ ID
   <div class="toast" id="toast">コピーしました</div>
 
   <script>
-    const templateText = `10000×
-5000×
-1000×
-100×
-PayPay
-カード
-交通系
-QUICPay
-ID
-初期釣り銭`;
-    const sampleText = `10000×4
-5000×3
-1000×25
-100×0
-PayPay 22000
-カード 12000
-交通系 4800
-QUICPay 3000
-ID 1000
-初期釣り銭 50000`;
-    const expenseSample = `出店料 10000
-交通費 3000
-氷 1200`;
-    const pettySample = `氷 1200
-駐車場 800
-備品 1500`;
-    const historyKey = "craftBeerSalesHistory";
+    
+c
+onst templateText = "\u91e3\u308a\u92ad\u6e96\u5099\u91d1\u30fc\u30fc\u30fc\u30fc\u30fc\n\u91d1\u5eab\u5185\u5185\u8a33\n10000\u00d7\n5000\u00d7\n1000\u00d7\n500\u00d7\n100\u00d7\n50\u00d7\n10\u00d7\n\n\u96fb\u5b50\u58f2\u4e0a\nSquare\nSquare\u5916PayPay";
+        const sampleText = "\u91e3\u308a\u92ad\u6e96\u5099\u91d1 50000\n\u91d1\u5eab\u5185\u5185\u8a33\n10000\u00d74\n5000\u00d73\n1000\u00d725\n500\u00d78\n100\u00d70\n50\u00d710\n10\u00d750\n\n\u96fb\u5b50\u58f2\u4e0a\nSquare 22000\nSquare\u5916PayPay 20800";
+        const expenseSample = "\u51fa\u5e97\u6599 10000\n\u4ea4\u901a\u8cbb 3000\n\u6c37 1200";
+        const pettySample = "\u6c37 1200\n\u99d0\u8eca\u5834 800\n\u5099\u54c1 1500";
+        const historyKey = "craftBeerSalesHistory";
     const maxHistoryItems = 50;
     let selectedHistoryId = "";
 
@@ -726,7 +706,7 @@ ID 1000
         const amountMatch = trimmed.match(/(-?[\d０-９,，]+)\s*円?$/);
         const amount = amountMatch ? normalizeNumber(amountMatch[1]) : 0;
 
-        if (/電子|決済|キャッシュレス|paypay|ペイペイ|pay|カード|クレカ|クレジット|交通|suica|pasmo|ic|id|quickpay|クイック|qr|line\s*pay|au\s*pay|d払い|楽天/i.test(trimmed)) {
+        if (/電子|決済|キャッシュレス|square|scuare|paypay|ペイペイ|pay|カード|クレカ|クレジット|交通|suica|pasmo|ic|id|quickpay|クイック|qr|line\s*pay|au\s*pay|d払い|楽天/i.test(trimmed)) {
           result.cashless += amount;
           if (amountMatch) {
             result.cashlessRows.push({
@@ -765,6 +745,7 @@ ID 1000
       text.split(/\r?\n/).forEach((line, index) => {
         const trimmed = line.trim();
         if (!trimmed) return;
+                if (!/[0-9\uFF10-\uFF19]/.test(trimmed)) return;
 
         const parsed = parseItemAmountLine(trimmed);
         if (!parsed) {
@@ -848,8 +829,6 @@ ID 1000
         `現金売上: ${yen(values.cashSales)}`,
         `電子決済: ${yen(values.cashless)}`,
         `総売上: ${yen(values.totalSales)}`,
-        `経費合計: ${yen(values.expenses.total)}`,
-        `収支: ${yen(values.profit)}`,
         values.petty.fund || values.petty.usedTotal ? `小口差額: ${yen(values.petty.balance)}` : null,
         values.memo ? `メモ: ${values.memo}` : null
       ].filter(Boolean).join("\n");
